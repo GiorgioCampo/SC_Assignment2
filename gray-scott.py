@@ -56,7 +56,7 @@ def plot_concentration(U, V):
     fig, ax = plt.subplots(figsize=(6, 6))
     
     combined = U - V  # Highlight the difference between U and V
-    img = ax.imshow(combined, cmap='RdBu', origin='lower', extent=[0, 1, 0, 1])
+    img = ax.imshow(combined, cmap='magma', origin='lower', extent=[0, 1, 0, 1])
     plt.colorbar(img, label="U - V Concentration Difference")
     
     ax.set_title(f"Gray-Scott Model Simulation after {steps} steps")
