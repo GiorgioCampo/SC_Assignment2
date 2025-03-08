@@ -4,6 +4,7 @@ from matplotlib import colors
 import numba
 from numba import jit, prange
 from tqdm import tqdm
+from src.plots import plot_grid, plot_comparison
 
 # Optimized SOR function with Numba JIT
 @numba.jit(nopython=True)
@@ -60,6 +61,13 @@ def sor_iteration(concentration, domain, omega, tolerance, max_iterations):
                     if diff > max_diff:
                         max_diff = diff
 
+        # Periodic boundary condition along y-axis
+        for i in range(1, concentration.shape[0]-1):
+            concentration[i,-1] = (1 - omega) * concentration[i,-1] + 0.25 * omega * (
+                concentration[i+1,-1] + concentration[i-1,-1] + concentration[i,0] + concentration[i,-2]
+            )
+
+
         # Check for convergence
         if max_diff < tolerance:
             return iter_count + 1
@@ -104,6 +112,11 @@ def sor_iteration_parallel(concentration, domain, omega, tolerance, max_iteratio
                     diff = abs(concentration[i, j] - old_val)
                     if diff > max_diff:
                         max_diff = diff
+        # Periodic boundary condition along y-axis
+        for i in range(1, concentration.shape[0]-1):
+            concentration[i,-1] = (1 - omega) * concentration[i,-1] + 0.25 * omega * (
+                concentration[i+1,-1] + concentration[i-1,-1] + concentration[i,0] + concentration[i,-2]
+            )
 
         # Convergence check
         if max_diff < tolerance:
@@ -141,7 +154,7 @@ def calculate_growth_probabilities_numba(candidates_i, candidates_j, concentrati
         conc_value = max(0.0, concentration[row, col])
         probs[idx] = conc_value ** eta
 
-    # Normalize
+    # Normalize probabilities
     total = np.sum(probs)
     if total > 0:
         probs = probs / total
@@ -149,13 +162,14 @@ def calculate_growth_probabilities_numba(candidates_i, candidates_j, concentrati
     return probs
 
 class DLASimulation:
-    def __init__(self, size=100, eta=1.0, omega=1.5, max_iterations=1000, tolerance=1e-5, domain=None):
+    def __init__(self, size=100, eta=1.0, omega=1.5, max_iterations=1000, tolerance=1e-5, domain=None, parallel=False):
         self.size = size
         self.eta = eta
         self.omega = omega
         self.max_iterations = max_iterations
         self.tolerance = tolerance
         self.domain = np.zeros((size, size), dtype=np.int32)
+        self.parallel = parallel
 
         # Metrics
         self.total_sor_iterations = 0
@@ -168,7 +182,6 @@ class DLASimulation:
         if domain is not None:
             self.domain = domain
         else:
-            # WHY IS IT SIZE - 1 AND NOT 0? ISN'T SIZE - 1 THE TOP?
             self.domain[0, size//2] = 1
 
         # Initialize with linear gradient
@@ -203,14 +216,22 @@ class DLASimulation:
                 if self.domain[row, col] == 1:
                     self.concentration[row, col] = 0.0
 
-        # Use the optimized SOR function
-        iter_count = sor_iteration(
-            self.concentration,
-            self.domain,
-            self.omega,
-            self.tolerance,
-            self.max_iterations
-        )
+        if self.parallel:
+            iter_count = sor_iteration_parallel(
+                self.concentration,
+                self.domain,
+                self.omega,
+                self.tolerance,
+                self.max_iterations
+            )
+        else:
+            iter_count = sor_iteration(
+                self.concentration,
+                self.domain,
+                self.omega,
+                self.tolerance,
+                self.max_iterations
+            )
 
         # Update metrics
         self.total_sor_iterations += iter_count
@@ -305,19 +326,6 @@ class DLASimulation:
                 print(f"Growth stopped after {step} steps")
                 break
 
-    def plot_result(self, savefig=False, steps=1000):
-        plt.figure(figsize=(8, 8))
-        cmap = colors.ListedColormap(['white', 'black'])
-        plt.imshow(self.domain, cmap=cmap, origin='lower')
-        plt.title(f"DLA Structure with η={self.eta} in {steps} steps")
-        plt.tight_layout()
-
-        if savefig:
-            plt.savefig(f"images/dla/dla_eta_{self.eta}.pdf")
-            plt.close()
-        else:
-            plt.show()
-
 
 # Function to calculate optimal omega for a grid
 def calculate_optimal_omega(grid_size):
@@ -325,28 +333,20 @@ def calculate_optimal_omega(grid_size):
 
 
 # Function to run multiple simulations with different eta values
-def run_dla_experiments(etas=[0.5, 1.0, 2.0], size=100, steps=1000):
+def run_dla_experiments(etas=[0.5, 1.0, 2.0], size=100, steps=1000, parallel=False):
     results = []
     optimal_omega = calculate_optimal_omega(size)
 
     for eta in etas:
-        sim = DLASimulation(size=size, eta=eta, omega=optimal_omega)
+        sim = DLASimulation(size=size, eta=eta, omega=optimal_omega, parallel=parallel)
         sim.run_simulation(steps=steps)
         results.append(sim)
 
-        sim.plot_result(savefig=True, steps=steps)
+        plot_grid(sim.domain, title=f"DLA Structure with η = {eta} in {steps} steps", savefig=True, filename=f"images/dla/dla_eta_{eta}.pdf", 
+                  cmap=colors.ListedColormap(['white', 'black']))
     
-    fig, axes = plt.subplots(1, len(results), figsize=(18, 6))
-    for i, sim in enumerate(results):
-        axes[i].imshow(sim.domain, cmap='binary', origin='lower')
-        axes[i].set_title(f"η={etas[i]}")
-        # axes[i].set_axis('off')
-
-    plt.suptitle("Comparison of DLA Structures with Different η Values")
-    plt.tight_layout()
-    plt.savefig("images/dla/dla_comparison.pdf")
-    plt.show()
-
+    plot_comparison(results, title="DLA Structure for Different η Values", sub_titles=[f"η = {eta}" for eta in etas], savefig=False, 
+                    filename="images/dla/dla_comparison.pdf", cmap=colors.ListedColormap(['white', 'black']))
     return results
 
 
@@ -412,14 +412,23 @@ if __name__ == "__main__":
     small_domain = np.zeros((10, 10), dtype=np.int32)
     small_concentration = np.zeros((10, 10), dtype=np.float64)
     _ = sor_iteration(small_concentration, small_domain, 1.5, 1e-5, 10)
+    _ = sor_iteration_parallel(small_concentration, small_domain, 1.5, 1e-5, 10)
     _, _ = find_growth_candidates_numba(small_domain, 10)
     _ = calculate_growth_probabilities_numba(
         np.array([1]), np.array([1]), small_concentration, 1.0)
     print("Compilation completed")
 
+    # Increase font size
+    plt.rcParams.update({'font.size': 14})
+
     # Find optimal omega for SOR
-    # best_omega = find_optimal_omega(size=100, num_omegas=20)
+    # best_omega = find_optimal_omega(size=100, num_omegas=30, etas=[0, 0.5, 1.0, 1.5])
 
     # Test different eta values with the optimal omega
     print("\nRunning full DLA simulations with optimal omega...")
-    results = run_dla_experiments(etas=[0, 0.5, 1.0, 2.0], steps=500)
+    results = run_dla_experiments(etas=[0, 0.5, 1.0, 1.5], size=100, steps=500)
+
+    # Measure fractal dimension
+    print("\nMeasuring fractal dimension...")
+    for sim in results:
+         pass

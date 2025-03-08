@@ -4,6 +4,8 @@ import random
 import numba
 from tqdm import tqdm
 from matplotlib.animation import FuncAnimation
+from src.plots import plot_grid, plot_comparison
+import matplotlib.colors as colors
 
 def initialize_grid(size):
     grid = np.zeros((size, size), dtype=int)
@@ -30,7 +32,6 @@ def choose_direction():
     index = np.random.randint(0, 4)  # Random integer from {0, 1, 2, 3}
     return directions[index]
 
-
 @numba.jit(nopython=True)
 def random_walk(grid, ps):
     size = grid.shape[0]
@@ -54,11 +55,9 @@ def random_walk(grid, ps):
         row, col = new_row, new_col  # Move walker
 
         if is_neighboring_cluster(grid, row, col):
-            # plot_grid(grid, ps, rw_pos=(row, col))
             if random.random() < ps:  # Stick with probability ps
                 grid[row, col] = 1
                 return (row, col)
-
 
 def monte_carlo_dla(size, num_walkers, ps):
     grid = initialize_grid(size)
@@ -75,25 +74,13 @@ def monte_carlo_dla(size, num_walkers, ps):
             retry += 1
     return grid, history
 
-def plot_grid(grid, ps, savefig=False, rw_pos=None):
-    plt.imshow(grid, cmap='gray_r', origin='lower')
-    if rw_pos is not None:
-        plt.scatter(*rw_pos, color='red', s=10, label=f"{rw_pos[0]},{rw_pos[1]}")
-        plt.legend()    
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.title(r"Monte Carlo DLA, $p_s = %.2f$" % ps)
-    if savefig:
-        plt.savefig(f"images/mca/mca_{ps}.pdf")
-    plt.show()
-
 def create_animation(history, ps):
     fig, ax = plt.subplots(figsize=(8, 8))
     
     img = ax.imshow(history[0][0], cmap='gray_r', origin='lower', animated=True)
     walker_plot = ax.scatter([], [], color='red', s=10, label="Walker Pos", animated=True)
     
-    title = ax.set_title(f"Monte Carlo DLA (ps={ps}), Frame: 0")
+    title = ax.set_title(r"Monte Carlo DLA ($p_s=%.2f$)" % ps)
     ax.set_xlabel("x")
     ax.set_ylabel("y")
 
@@ -111,37 +98,39 @@ def create_animation(history, ps):
             walker_plot.set_offsets(np.column_stack([y_vals, x_vals]))
             
             # Update legend dynamically
-            legend_text = f"({x_vals[0]}, {y_vals[0]})"
-            legend.get_texts()[0].set_text(legend_text)
+            # legend_text = f"({x_vals[0]}, {y_vals[0]})"
+            # legend.get_texts()[0].set_text(legend_text)
         else:
             walker_plot.set_offsets(np.empty((0, 2)))
 
-        title.set_text(f"Monte Carlo DLA (ps={ps}), Frame: {frame}")
+        title.set_text(r"Monte Carlo DLA ($p_s=%.2f$)" % (ps))
         return img, walker_plot, title, legend
 
     ani = FuncAnimation(fig, update, frames=len(history), blit=True, interval=100)
     return ani
 
-
 if __name__ == "__main__":
     # Parameters
     size = 100
-    num_walkers = 5000
-    ps_values = [1.0, 0.7, 0.4, 0.1]
-    animation = True
+    num_walkers = 10000
+    ps_values = [0.1, 0.2, 0.4, 1.0]
+    animation = False
+    plt.rcParams.update({'font.size': 14})
+
 
     # NB: TALK ABOUT PERCOLATION THEORY FOR A 2D GRIDs
     # MEASURE THE PERCOLATION THRESHOLD AND THE FRACTAL DIMENSION
-
+    results = []
     for ps in ps_values:
         grid, history = monte_carlo_dla(size, num_walkers, ps)
-        plot_grid(grid, ps, savefig=True)
+        plot_grid(grid, title=r"Monte Carlo DLA, $p_s = %.2f$" % ps, filename=f"images/mca/mca_{ps}.pdf",
+                  savefig=False, cmap=colors.ListedColormap(['white', 'black']), colorbar=False)
+        results.append(grid)
 
         if animation:
             ani = create_animation(history, ps)
-            ani.save(f'images/mca/dla_animation_ps_{ps}.mp4', writer='ffmpeg', fps=10)
-
-            # Display in Jupyter (if in a notebook)
-            # HTML(ani.to_html5_video())
-            # Or use plt.show() if in a script
+            ani.save(f'images/mca/dla_animation_ps_{ps}.mp4', writer='ffmpeg', fps=10, dpi=600)
             plt.show()
+
+    plot_comparison(results, title="Monte Carlo DLA for Different $p_s$ Values", sub_titles=[r"$p_s = %.2f$" % ps for ps in ps_values], savefig=False,
+                    filename="images/mca/mca_comparison.pdf", cmap=colors.ListedColormap(['white', 'black']), colorbar=False)

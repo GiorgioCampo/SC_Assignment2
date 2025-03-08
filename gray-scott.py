@@ -1,10 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from src.plots import plot_grid, plot_comparison
 
 def initialize_grid(n):
     """Initialize U and V fields"""
-    u = np.full((n+2, n+2), 0.5)  # U is 0.5 everywhere
-    v = np.zeros((n+2, n+2))      # V is 0 everywhere initially
+    u = np.full((n+2, n+2), 0.5)  # U = 0.5
+    v = np.zeros((n+2, n+2))      # V = 0
 
     # Place a square of V = 0.25 in the center
     center = n // 2
@@ -18,20 +19,19 @@ def initialize_grid(n):
     return u, v
 
 def apply_periodic_bc(u):
-    """Apply periodic boundary conditions to ensure seamless pattern formation."""
     u[0, :] = u[-2, :]
     u[-1, :] = u[1, :]
     u[:, 0] = u[:, -2]
     u[:, -1] = u[:, 1]
 
 def compute_laplacian(z):
-    """Compute the discrete Laplacian using a finite difference stencil."""
     return (z[:-2, 1:-1] + z[1:-1, :-2] - 4 * z[1:-1, 1:-1] +
             z[1:-1, 2:] + z[2:, 1:-1])
 
-def gray_scott_simulation(n=100, Du=0.16, Dv=0.08, f=0.035, k=0.060, steps=5000, dt=1):
+def gray_scott_simulation(size=100, Du=0.16, Dv=0.08, f=0.035, k=0.060, steps=5000, dt=1):
     """Simulate the Gray-Scott model."""
-    U, V = initialize_grid(n)  # Initialize U and V fields
+    
+    U, V = initialize_grid(size)  # Initialize U and V fields
 
     for _ in range(steps):
         # Compute Laplacians
@@ -49,43 +49,33 @@ def gray_scott_simulation(n=100, Du=0.16, Dv=0.08, f=0.035, k=0.060, steps=5000,
         apply_periodic_bc(U)
         apply_periodic_bc(V)
 
+    plot_grid((U - V), title = f"Gray-Scott Model Simulation after {steps} steps", savefig=False, 
+              filename=f"images/gs/gs_{Du}_{Dv}_{f}_{k}.pdf", cmap='magma', colorbar=True)
+
     return U, V
 
-def plot_concentration(U, V):
-    """Plot the final concentration field combining U and V."""
-    fig, ax = plt.subplots(figsize=(6, 6))
-    
-    combined = U - V  # Highlight the difference between U and V
-    img = ax.imshow(combined, cmap='magma', origin='lower', extent=[0, 1, 0, 1])
-    plt.colorbar(img, label="U - V Concentration Difference")
-    
-    ax.set_title(f"Gray-Scott Model Simulation after {steps} steps")
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    plt.show()
-
-# Run the simulation
-n = 100  # Grid size
-steps = 5000  # Simulation steps
-
 if __name__ == "__main__":
+    # Run the simulation
+    size = 100 
+    steps = 5000  
 
     # Mixed dots and waves (default)
-    U1, V1 = gray_scott_simulation(n=100, Du=0.16, Dv=0.08, f=0.035, k=0.060, steps=5000, dt=1)
-    plot_concentration(U1[1:-1, 1:-1], V1[1:-1, 1:-1])
+    U1, V1 = gray_scott_simulation(size=100, Du=0.16, Dv=0.08, f=0.035, k=0.060, steps=5000, dt=1)
 
     # Sparse spots
-    U2, V2 = gray_scott_simulation(n=100, Du=0.16, Dv=0.08, f=0.022, k=0.051, steps=5000, dt=1)
-    plot_concentration(U2[1:-1, 1:-1], V2[1:-1, 1:-1])
+    U2, V2 = gray_scott_simulation(size=100, Du=0.16, Dv=0.08, f=0.022, k=0.051, steps=5000, dt=1)
 
     # Dense labyrinth-like waves
-    U3, V3 = gray_scott_simulation(n=100, Du=0.16, Dv=0.08, f=0.060, k=0.062, steps=5000, dt=1)
-    plot_concentration(U3[1:-1, 1:-1], V3[1:-1, 1:-1])
-
-    # Large, high-contrast patterns
-    U4, V4 = gray_scott_simulation(n=100, Du=0.16, Dv=0.08, f=0.050, k=0.065, steps=5000, dt=1)
-    plot_concentration(U4[1:-1, 1:-1], V4[1:-1, 1:-1])
+    U3, V3 = gray_scott_simulation(size=100, Du=0.16, Dv=0.08, f=0.060, k=0.062, steps=5000, dt=1)
 
     # Very fine, complex structures
-    U5, V5 = gray_scott_simulation(n=100, Du=0.16, Dv=0.08, f=0.025, k=0.055, steps=5000, dt=1)
-    plot_concentration(U5[1:-1, 1:-1], V5[1:-1, 1:-1])
+    U4, V4 = gray_scott_simulation(size=100, Du=0.16, Dv=0.08, f=0.025, k=0.055, steps=5000, dt=1)
+
+    results = [(U1 - V1), (U2 - V2), (U3 - V3), (U4 - V4)]
+
+    plot_comparison(results, title="Gray-Scott Model Simulation", 
+                    sub_titles=["Mixed dots and waves", "Sparse spots", "Dense labyrinth-like waves", "Very fine, complex structures"], 
+                    savefig=False, filename="images/gs/gs_comparison.pdf", cmap='magma', colorbar=True)
+
+    plt.show()
+    
