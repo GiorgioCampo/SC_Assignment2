@@ -185,16 +185,17 @@ def run_dla_experiments(etas=[0.5, 1.0, 2.0], size=100, steps=1000, parallel=Fal
         sim.run_simulation(steps=steps)
         results.append(sim.domain)
 
-        plot_grid(sim.domain, title=f"DLA Structure with η = {eta} in {steps} steps", savefig=False, filename=f"images/dla/dla_eta_{eta}.pdf", 
+        plot_grid(sim.domain, title=f"DLA Structure with η = {eta} in {steps} steps", savefig=True, filename=f"images/dla/dla_eta_{eta}.pdf", 
                   cmap=colors.ListedColormap(['white', 'black']))
     
-    plot_comparison(results, title="DLA Structure for Different η Values", sub_titles=[f"η = {eta}" for eta in etas], savefig=False, 
+    plot_comparison(results, title="DLA Structure for Different η Values", sub_titles=[f"η = {eta}" for eta in etas], savefig=True, 
                     filename="images/dla/dla_comparison.pdf", cmap=colors.ListedColormap(['white', 'black']))
     return results
 
 # Benchmark different omega values for SOR convergence
-def find_optimal_omega(size=100, num_omegas=5, steps=50, etas=[0.5, 1.0, 2.0]):
+def find_optimal_omega(size=100, num_omegas=5, steps=50, etas=[0.5, 1.0, 2.0], savefig=False):
     omegas = np.linspace(1.5, 1.99, num_omegas)
+    plt.rcParams.update({'font.size': 16})
     optimal_omega = calculate_optimal_omega(size)
     
     print("\nBenchmarking different omega values using DLASimulation:")
@@ -230,19 +231,45 @@ def find_optimal_omega(size=100, num_omegas=5, steps=50, etas=[0.5, 1.0, 2.0]):
     
     # Plot results
     plt.figure(figsize=(10, 6))
-    for eta in etas:
-        omegas, iterations = zip(*results[eta])
-        best_omega = omegas[np.argmin(iterations)]
-        p = plt.plot(omegas, iterations, 'o-', label=f'η={eta}')
-        plt.axvline(x=best_omega, linestyle='--', label=f'Optimal for η={eta}: {best_omega:.4f}', color=p[0].get_color())
     
-    plt.axvline(x=optimal_omega, color='r', linestyle='--', label=f'Theoretical optimal: {optimal_omega:.4f}')
-    plt.xlabel('Omega')
+    # First plot all lines to get their colors
+    lines = []
+    for eta in etas:
+        omegas_vals, iterations = zip(*results[eta])
+        line, = plt.plot(omegas_vals, iterations, 'o-', markersize=4, label=f'η={eta}')
+        lines.append(line)
+    
+    # Now add the star markers for optimal values
+    for i, eta in enumerate(etas):
+        omegas_vals, iterations = zip(*results[eta])
+        best_idx = np.argmin(iterations)
+        best_omega = omegas_vals[best_idx]
+        best_iter = iterations[best_idx]
+        
+        # Add star marker for optimal omega - make it larger and on top
+        plt.plot(best_omega, best_iter, '*', color=lines[i].get_color(), 
+                 markersize=15, zorder=10, 
+                 label=f'$ω_{{{eta}}}^*={best_omega:.4f}$')
+        
+        # Add vertical line with the same color
+        plt.axvline(x=best_omega, linestyle='--', color=lines[i].get_color(), alpha=0.5)
+    
+    # Add theoretical optimal line - always on top
+    plt.axvline(x=optimal_omega, color='r', linestyle='--', 
+                label=f'Theoretical optimal: {optimal_omega:.4f}', zorder=5)
+    
+    plt.xlabel('Omega (ω)')
     plt.ylabel('Avg Iterations to converge')
     plt.title('SOR Convergence Rate vs. Omega for Different η Values')
     plt.grid(True)
     plt.legend()
-    plt.savefig("images/dla/sor_benchmark_eta.pdf")
+    
+    # Save the figure
+    plt.tight_layout()
+    if savefig:
+        plt.savefig("images/dla/sor_benchmark_eta.pdf")
+    else:
+        plt.show()
     
     return results
 
@@ -250,15 +277,17 @@ def find_optimal_omega(size=100, num_omegas=5, steps=50, etas=[0.5, 1.0, 2.0]):
 if __name__ == "__main__":
     # Increase font size
     plt.rcParams.update({'font.size': 14})
+    etas = [0, 0.5, 1.0, 1.5]
 
     # Find optimal omega for SOR
-    best_omega = find_optimal_omega(size=100, num_omegas=30, etas=[0, 0.5, 1.0, 1.5])
+    best_omega = find_optimal_omega(size=100, num_omegas=30, etas=[0, 0.5, 1.0, 1.5], savefig=True)
 
     # Test different eta values with the optimal omega
     print("\nRunning full DLA simulations with optimal omega...")
-    results = run_dla_experiments(etas=[0, 0.5, 1.0, 1.5], size=100, steps=500)
+    results = run_dla_experiments(etas=etas, size=100, steps=500)
 
     # Measure fractal dimension
     print("\nMeasuring fractal dimension...")
-    for sim in results:
-         pass
+    for i, sim in enumerate(results):
+        fractal_dimension = calculate_fractal_dimension(sim)
+        print(f"Fractal dimension for {etas[i]}: {fractal_dimension}")
