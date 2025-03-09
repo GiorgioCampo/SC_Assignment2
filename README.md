@@ -1,0 +1,1 @@
+In order to run the code, simply run the notebook main.ipynb. All the plots can be saved by using savefig=True and experiments also give the possibility to create animations.
