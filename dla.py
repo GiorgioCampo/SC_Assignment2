@@ -176,7 +176,7 @@ def calculate_optimal_omega(grid_size):
     return 2 / (1 + np.sin(np.pi/(grid_size + 1)))
 
 # Function to run multiple simulations with different eta values
-def run_dla_experiments(etas=[0.5, 1.0, 2.0], size=100, steps=1000, parallel=False):
+def run_dla_experiments(etas=[0.5, 1.0, 2.0], size=100, steps=1000, parallel=False, savefig=False):
     results = []
     optimal_omega = calculate_optimal_omega(size)
 
@@ -185,10 +185,10 @@ def run_dla_experiments(etas=[0.5, 1.0, 2.0], size=100, steps=1000, parallel=Fal
         sim.run_simulation(steps=steps)
         results.append(sim.domain)
 
-        plot_grid(sim.domain, title=f"DLA Structure with η = {eta} in {steps} steps", savefig=True, filename=f"images/dla/dla_eta_{eta}.pdf", 
+        plot_grid(sim.domain, title=f"DLA Structure with η = {eta} in {steps} steps", savefig=savefig, filename=f"images/dla/dla_eta_{eta}.pdf", 
                   cmap=colors.ListedColormap(['white', 'black']))
     
-    plot_comparison(results, title="DLA Structure for Different η Values", sub_titles=[f"η = {eta}" for eta in etas], savefig=True, 
+    plot_comparison(results, title="DLA Structure for Different η Values", sub_titles=[f"η = {eta}" for eta in etas], savefig=savefig, 
                     filename="images/dla/dla_comparison.pdf", cmap=colors.ListedColormap(['white', 'black']))
     return results
 
@@ -197,10 +197,6 @@ def find_optimal_omega(size=100, num_omegas=5, steps=50, etas=[0.5, 1.0, 2.0], s
     omegas = np.linspace(1.5, 1.99, num_omegas)
     plt.rcParams.update({'font.size': 16})
     optimal_omega = calculate_optimal_omega(size)
-    
-    print("\nBenchmarking different omega values using DLASimulation:")
-    print("{:<10} {:<10} {:<10} {:<10}".format("Omega", "Eta", "Avg Iterations", "Std Dev"))
-    print("-" * 40)
     
     results = {eta: [] for eta in etas}
     domain = np.zeros((size, size), dtype=np.int32)
@@ -215,7 +211,7 @@ def find_optimal_omega(size=100, num_omegas=5, steps=50, etas=[0.5, 1.0, 2.0], s
 
     
     for eta in etas:
-        for omega in omegas:
+        for omega in tqdm(omegas, desc=f"Benchmarking η={eta}"):
             sim = DLASimulation(size=size, eta=eta, omega=omega, domain=domain)
             
             iter_counts = []
@@ -226,8 +222,6 @@ def find_optimal_omega(size=100, num_omegas=5, steps=50, etas=[0.5, 1.0, 2.0], s
             avg_iter = np.mean(iter_counts)
             std_iter = np.std(iter_counts)
             results[eta].append((omega, avg_iter))
-            
-            print("{:<10.4f} {:<10.2f} {:<10.2f} {:<10.2f}".format(omega, eta, avg_iter, std_iter))
     
     # Plot results
     plt.figure(figsize=(10, 6))
@@ -284,7 +278,7 @@ if __name__ == "__main__":
 
     # Test different eta values with the optimal omega
     print("\nRunning full DLA simulations with optimal omega...")
-    results = run_dla_experiments(etas=etas, size=100, steps=500)
+    results = run_dla_experiments(etas=etas, size=100, steps=500, parallel=True, savefig=True)
 
     # Measure fractal dimension
     print("\nMeasuring fractal dimension...")

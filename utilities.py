@@ -2,7 +2,8 @@ from numba import jit, prange
 import numpy as np
 
 
-__all__ = ['find_growth_candidates_numba', 'calculate_growth_probabilities_numba', 'is_neighboring_cluster', 'sor_iteration', 'sor_iteration_parallel']
+__all__ = ['find_growth_candidates_numba', 'calculate_growth_probabilities_numba', 'is_neighboring_cluster', 'sor_iteration', 'sor_iteration_parallel', 
+           'calculate_fractal_dimension']
 
 @jit(nopython=True)
 def is_neighboring_cluster(grid, row, col):
@@ -157,3 +158,58 @@ def calculate_growth_probabilities_numba(candidates_i, candidates_j, concentrati
         probs = probs / total
 
     return probs
+
+def calculate_fractal_dimension(dla_grid, num_samples=50):
+    # Get the size of the grid
+    grid_size = dla_grid.shape[0]
+    
+    # Initialize lists to store box sizes and counts
+    box_sizes = []
+    occupied_box_counts = []
+    
+    # Generate logarithmically spaced box sizes for better scaling analysis
+    # Starting from small boxes (2^0.1) to boxes nearly as large as the grid
+    box_sizes_array = np.logspace(0.1, np.log10(grid_size/2), num=num_samples)
+    
+    for box_size in box_sizes_array:
+        # Convert box_size to integer
+        box_size_int = int(box_size)
+        if box_size_int < 1:
+            continue
+            
+        # Ensure the box size divides the grid evenly
+        usable_grid_size = (grid_size // box_size_int) * box_size_int
+        if usable_grid_size == 0:
+            continue
+            
+        # Extract a portion of the grid that can be evenly divided by the box size
+        usable_grid = dla_grid[:usable_grid_size, :usable_grid_size]
+        
+        # Reshape the grid to count occupied boxes
+        # A box is occupied if it contains at least one DLA particle
+        boxes = usable_grid.reshape(
+            usable_grid_size // box_size_int, box_size_int, 
+            usable_grid_size // box_size_int, box_size_int
+        )
+        
+        # Count boxes that contain at least one particle
+        occupied_boxes = np.sum(np.any(boxes, axis=(1, 3)))
+        
+        # Store results
+        box_sizes.append(box_size_int)
+        occupied_box_counts.append(occupied_boxes)
+    
+    # Convert to numpy arrays for calculations
+    box_sizes = np.array(box_sizes)
+    occupied_box_counts = np.array(occupied_box_counts)
+    
+    # Apply log-log fit to determine fractal dimension
+    # Fractal dimension is the negative slope of the log(count) vs log(size) plot
+    log_sizes = np.log(box_sizes)
+    log_counts = np.log(occupied_box_counts)
+    slope, _ = np.polyfit(log_sizes, log_counts, 1)
+    
+    # Fractal dimension is the negative of the slope
+    fractal_dimension = -slope
+    
+    return fractal_dimension

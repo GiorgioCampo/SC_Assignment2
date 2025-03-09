@@ -1,7 +1,10 @@
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.animation as animation
-import numpy as np
+
+
+plt.rcParams.update({'font.size': 14})
+
 
 def plot_comparison(results, title="", sub_titles="", savefig=False, filename=None, cmap=None, colorbar=None):
     fig, axes = plt.subplots(int(len(results)/2), int(len(results)/2), figsize=(8, 8))
@@ -9,16 +12,18 @@ def plot_comparison(results, title="", sub_titles="", savefig=False, filename=No
     for i, grid in enumerate(results):
         img = axes[i].imshow(grid, cmap=cmap, origin='lower')
         if colorbar:
-            plt.colorbar(img, label="U - V Concentration Difference")
+            plt.colorbar(img)
 
         axes[i].set_title(sub_titles[i])
         axes[i].set_xlabel("x")
         axes[i].set_ylabel("y")
 
-    plt.suptitle(title)
+    if title is not "":
+        plt.suptitle(title)
+
     plt.tight_layout()
     if savefig:
-        plt.savefig("images/mca/mca_comparison.pdf")
+        plt.savefig(filename)
         plt.close()
     else:
         plt.show()

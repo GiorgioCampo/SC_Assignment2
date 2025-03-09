@@ -7,7 +7,7 @@ from matplotlib.animation import FuncAnimation
 import matplotlib.colors as colors
 
 from plots import plot_grid, plot_comparison
-from utilities import is_neighboring_cluster
+from utilities import is_neighboring_cluster, calculate_fractal_dimension
 
 def initialize_grid(size):
     grid = np.zeros((size, size), dtype=int)
@@ -25,7 +25,10 @@ def choose_direction():
 @numba.jit(nopython=True)
 def random_walk(grid, ps):
     size = grid.shape[0]
-    row, col = size-1, random.randint(0, size-1)  # Start at random top position
+    # Start at random top position where there is no cluster
+    row, col = size-1, random.randint(0, size-1)  
+    while grid[row, col] == 1:
+        col = random.randint(0, size-1)
     retry = 0
     while True:
         drow, dcol = choose_direction()
@@ -110,7 +113,7 @@ if __name__ == "__main__":
     for ps in ps_values:
         grid, history = monte_carlo_dla(size, num_walkers, ps)
         plot_grid(grid, title=r"Monte Carlo DLA, $p_s = %.2f$" % ps, filename=f"images/mca/mca_{ps}.pdf",
-                  savefig=False, cmap=colors.ListedColormap(['white', 'black']), colorbar=False)
+                  savefig=True, cmap=colors.ListedColormap(['white', 'black']), colorbar=False)
         results.append(grid)
 
         if animation:
@@ -118,5 +121,10 @@ if __name__ == "__main__":
             ani.save(f'images/mca/dla_animation_ps_{ps}.mp4', writer='ffmpeg', fps=10, dpi=600)
             plt.show()
 
-    plot_comparison(results, title="Monte Carlo DLA for Different $p_s$ Values", sub_titles=[r"$p_s = %.2f$" % ps for ps in ps_values], savefig=False,
+    plot_comparison(results, title="Monte Carlo DLA for Different $p_s$ Values", sub_titles=[r"$p_s = %.2f$" % ps for ps in ps_values], savefig=True,
                     filename="images/mca/mca_comparison.pdf", cmap=colors.ListedColormap(['white', 'black']), colorbar=False)
+    
+    print("\nMeasuring fractal dimension...")
+    for i, sim in enumerate(results):
+        fractal_dimension = calculate_fractal_dimension(sim)
+        print(f"Fractal dimension for {ps_values[i]}: {fractal_dimension}")

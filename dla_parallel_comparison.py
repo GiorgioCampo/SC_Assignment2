@@ -64,7 +64,7 @@ def plot_benchmark_results(results):
     plt.plot(results['grid_size'], results['speedup'], 'd-', color='green', linewidth=2)
     plt.axhline(y=1.0, color='r', linestyle='--', label='Break-even (1.0x)')
     plt.xlabel('Grid Size')
-    plt.ylabel('Speedup (Sequential / Parallel)')
+    plt.ylabel('Speedup')
     plt.title('Parallel Speedup vs Grid Size')
     plt.grid(True)
         
@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
     results = benchmark_parallel_vs_sequential(grid_sizes, steps=50, eta=1.0)
     
-    plt.rcParams.update({'font.size': 14})
+    plt.rcParams.update({'font.size': 16})
 
     # Plot the results
     plot_benchmark_results(results)
