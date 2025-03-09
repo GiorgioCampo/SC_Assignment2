@@ -176,7 +176,7 @@ def calculate_optimal_omega(grid_size):
     return 2 / (1 + np.sin(np.pi/(grid_size + 1)))
 
 # Function to run multiple simulations with different eta values
-def run_dla_experiments(etas=[0.5, 1.0, 2.0], size=100, steps=1000, parallel=False):
+def run_dla_experiments(etas=[0.5, 1.0, 2.0], size=100, steps=1000, parallel=False, savefig=False):
     results = []
     optimal_omega = calculate_optimal_omega(size)
 
@@ -188,12 +188,12 @@ def run_dla_experiments(etas=[0.5, 1.0, 2.0], size=100, steps=1000, parallel=Fal
         plot_grid(sim.domain, title=f"DLA Structure with η = {eta} in {steps} steps", savefig=False, filename=f"images/dla/dla_eta_{eta}.pdf", 
                   cmap=colors.ListedColormap(['white', 'black']))
     
-    plot_comparison(results, title="DLA Structure for Different η Values", sub_titles=[f"η = {eta}" for eta in etas], savefig=False, 
+    plot_comparison(results, title="DLA Structure for Different η Values", sub_titles=[f"η = {eta}" for eta in etas], savefig=savefig, 
                     filename="images/dla/dla_comparison.pdf", cmap=colors.ListedColormap(['white', 'black']))
     return results
 
 # Benchmark different omega values for SOR convergence
-def find_optimal_omega(size=100, num_omegas=5, steps=50, etas=[0.5, 1.0, 2.0]):
+def find_optimal_omega(size=100, num_omegas=5, steps=50, etas=[0.5, 1.0, 2.0], savefig=False):  
     omegas = np.linspace(1.5, 1.99, num_omegas)
     optimal_omega = calculate_optimal_omega(size)
     
@@ -242,7 +242,8 @@ def find_optimal_omega(size=100, num_omegas=5, steps=50, etas=[0.5, 1.0, 2.0]):
     plt.title('SOR Convergence Rate vs. Omega for Different η Values')
     plt.grid(True)
     plt.legend()
-    plt.savefig("images/dla/sor_benchmark_eta.pdf")
+    if savefig:
+        plt.savefig("images/dla/sor_benchmark_eta.pdf")
     
     return results
 
