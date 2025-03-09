@@ -12,6 +12,13 @@ def initialize_grid(n):
     center = n // 2
     seed_size = n // 10
     v[center - seed_size:center + seed_size, center - seed_size:center + seed_size] = 0.25
+
+    # # Create circular seed
+    # center = n // 2
+    # radius = n // 12
+    # y, x = np.ogrid[-center:n+2-center, -center:n+2-center]
+    # mask = x*x + y*y <= radius*radius
+    # v[mask] = 0.25
     
     # Add small random noise to both U and V
     u += np.random.uniform(-0.01, 0.01, (n+2, n+2))
@@ -20,11 +27,11 @@ def initialize_grid(n):
     return u, v
 
 @numba.jit(nopython=True)
-def apply_periodic_bc(u):
-    u[0, :] = u[-2, :]   # Bottom boundary from second-to-last row
-    u[-1, :] = u[1, :]   # Top boundary from second row
-    u[:, 0] = u[:, -2]   # Left boundary from second-to-last column
-    u[:, -1] = u[:, 1]   # Right boundary from second column
+def apply_neumann_bc(u):
+    u[0, :] = u[1, :]   # Bottom boundary from second-to-last row
+    u[-1, :] = u[-2, :]   # Top boundary from second row
+    u[:, 0] = u[:, 1]   # Left boundary from second-to-last column
+    u[:, -1] = u[:, -2]   # Right boundary from second column
 
 @numba.jit(nopython=True)
 def compute_laplacian(z, dx):
@@ -63,8 +70,8 @@ def gray_scott_simulation(size=100, Du=0.16, Dv=0.08, f=0.035, k=0.060, steps=50
         V[1:-1, 1:-1] += dt * (Dv * Lv + uvv - (f + k) * V[1:-1, 1:-1])
         
         # Apply periodic boundary conditions
-        apply_periodic_bc(U)
-        apply_periodic_bc(V)
+        apply_neumann_bc(U)
+        apply_neumann_bc(V)
         
         # Save results at specified intervals
         if save_interval > 0 and (step + 1) % save_interval == 0:
@@ -87,16 +94,16 @@ def gray_scott_simulation(size=100, Du=0.16, Dv=0.08, f=0.035, k=0.060, steps=50
 
 if __name__ == "__main__":
     size = 100
-    T = 5000
+    T = 200000
     dt = 1 
-    dx = 1
-    save_interval = 0  
+    dx = 1.5
+    save_interval = 0 
     steps = int(T / dt)
     
     # Run simulations with different parameters
     
     # Mixed dots and waves (default)
-    U1, V1 = gray_scott_simulation(size=size, Du=0.16, Dv=0.08, f=0.028, k=0.062, 
+    U1, V1 = gray_scott_simulation(size=size, Du=0.16, Dv=0.08, f=0.035, k=0.060, 
                                   steps=steps, dt=dt, dx=dx, save_interval=0)
     
     # Sparse spots
@@ -108,7 +115,7 @@ if __name__ == "__main__":
                                   steps=steps, dt=dt, dx=dx, save_interval=0)
     
     # Very fine, complex structures
-    U4, V4 = gray_scott_simulation(size=size, Du=0.16, Dv=0.08, f=0.018, k=0.051, 
+    U4, V4 = gray_scott_simulation(size=size, Du=0.08, Dv=0.04, f=0.025, k=0.055, 
                                                    steps=steps, dt=dt, dx=dx, save_interval=save_interval)
     
     # Create comparison plot

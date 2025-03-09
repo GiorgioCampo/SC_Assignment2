@@ -18,7 +18,7 @@ def plot_comparison(results, title="", sub_titles="", savefig=False, filename=No
     plt.suptitle(title)
     plt.tight_layout()
     if savefig:
-        plt.savefig("images/mca/mca_comparison.pdf")
+        plt.savefig(filename)
         plt.close()
     else:
         plt.show()
