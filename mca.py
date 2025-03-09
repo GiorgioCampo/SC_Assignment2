@@ -4,8 +4,10 @@ import random
 import numba
 from tqdm import tqdm
 from matplotlib.animation import FuncAnimation
-from src.plots import plot_grid, plot_comparison
 import matplotlib.colors as colors
+
+from plots import plot_grid, plot_comparison
+from utilities import is_neighboring_cluster
 
 def initialize_grid(size):
     grid = np.zeros((size, size), dtype=int)
@@ -13,18 +15,6 @@ def initialize_grid(size):
     # Row, Col
     grid[0, center] = 1  # Start with a seed at the center bottom
     return grid
-
-@numba.jit(nopython=True)
-def is_neighboring_cluster(grid, row, col):
-    size = grid.shape[0]
-    neighbors = [(row-1, col), (row+1, col), (row, col-1), (row, col+1)]
-    for nrow, ncol in neighbors:
-        # Peropdic borders!!
-        if ((0 <= nrow < size and 0 <= ncol < size and grid[nrow, ncol] == 1) or 
-            (0 <= nrow < size and ncol == -1 and grid[nrow, size-1] == 1) or 
-            (0 <= nrow < size and ncol == size and grid[nrow, 0] == 1)):
-            return True
-    return False
 
 @numba.jit(nopython=True)
 def choose_direction():
@@ -96,10 +86,6 @@ def create_animation(history, ps):
         if walk_positions is not None and len(walk_positions) > 0:
             x_vals, y_vals = zip(*walk_positions)
             walker_plot.set_offsets(np.column_stack([y_vals, x_vals]))
-            
-            # Update legend dynamically
-            # legend_text = f"({x_vals[0]}, {y_vals[0]})"
-            # legend.get_texts()[0].set_text(legend_text)
         else:
             walker_plot.set_offsets(np.empty((0, 2)))
 

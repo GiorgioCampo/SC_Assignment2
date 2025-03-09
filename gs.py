@@ -1,9 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from src.plots import plot_grid, plot_comparison
-
-# Import functions from the diffusion equation code
-from diffusion_equation import plot_diffusion, animate_diffusion
+from tqdm import tqdm
+from plots import plot_grid, plot_comparison, animate_diffusion
+import numba
 
 def initialize_grid(n):
     u = np.full((n+2, n+2), 0.5)  # U = 0.5
@@ -20,18 +19,20 @@ def initialize_grid(n):
     
     return u, v
 
+@numba.jit(nopython=True)
 def apply_periodic_bc(u):
     u[0, :] = u[-2, :]   # Bottom boundary from second-to-last row
     u[-1, :] = u[1, :]   # Top boundary from second row
     u[:, 0] = u[:, -2]   # Left boundary from second-to-last column
     u[:, -1] = u[:, 1]   # Right boundary from second column
 
+@numba.jit(nopython=True)
 def compute_laplacian(z, dx):
     return (z[:-2, 1:-1] + z[1:-1, :-2] - 4 * z[1:-1, 1:-1] + 
             z[1:-1, 2:] + z[2:, 1:-1]) / (dx**2)
 
 def gray_scott_simulation(size=100, Du=0.16, Dv=0.08, f=0.035, k=0.060, steps=5000, dt=1.0, dx=1.0, 
-                         save_interval=100, animate=False):
+                         save_interval=100):
     stability_condition_u = 4 * Du * dt / dx**2
     stability_condition_v = 4 * Dv * dt / dx**2
     
@@ -49,7 +50,7 @@ def gray_scott_simulation(size=100, Du=0.16, Dv=0.08, f=0.035, k=0.060, steps=50
     solutions = [U - V] if save_interval > 0 else []
     
     # Main simulation loop
-    for step in range(steps):
+    for step in tqdm(range(steps), desc=f"Simulating Gray-Scott Model with f = {f}, k = {k}"):
         # Compute Laplacians with proper scaling
         Lu = compute_laplacian(U, dx)
         Lv = compute_laplacian(V, dx)
@@ -72,33 +73,30 @@ def gray_scott_simulation(size=100, Du=0.16, Dv=0.08, f=0.035, k=0.060, steps=50
     
     # Plot final state
     plot_grid((U - V), title=f"Gray-Scott Model Simulation after {steps} steps", 
-              savefig=False, filename=f"images/gs/gs_{Du}_{Dv}_{f}_{k}.pdf", 
+              savefig=True, filename=f"images/gs/gs_{Du}_{Dv}_{f}_{k}.pdf", 
               cmap='magma', colorbar=True)
     
     # Create animation if requested
-    if animate and save_interval > 0:
+    if save_interval > 0:
         animate_diffusion(np.array(times), np.array(solutions), 
                          interval=200, time_multiplier=1, 
                          save_animation=True, 
                          filename=f"images/gs/gs_animation_{Du}_{Dv}_{f}_{k}.gif")
-    
-    if save_interval > 0:
-        return U, V, np.array(times), np.array(solutions)
-    else:
-        return U, V
+        
+    return U, V
 
 if __name__ == "__main__":
-    # Set simulation parameters
     size = 100
-    steps = 5000
-    dt = 0.25  # Reduced time step for better stability
-    dx = 1.0
-    save_interval = 50  # Save every 50 steps
+    T = 5000
+    dt = 1 
+    dx = 1
+    save_interval = 0  
+    steps = int(T / dt)
     
     # Run simulations with different parameters
     
     # Mixed dots and waves (default)
-    U1, V1 = gray_scott_simulation(size=size, Du=0.16, Dv=0.08, f=0.035, k=0.060, 
+    U1, V1 = gray_scott_simulation(size=size, Du=0.16, Dv=0.08, f=0.028, k=0.062, 
                                   steps=steps, dt=dt, dx=dx, save_interval=0)
     
     # Sparse spots
@@ -110,9 +108,8 @@ if __name__ == "__main__":
                                   steps=steps, dt=dt, dx=dx, save_interval=0)
     
     # Very fine, complex structures
-    U4, V4, times, solutions = gray_scott_simulation(size=size, Du=0.16, Dv=0.08, f=0.025, k=0.055, 
-                                                   steps=steps, dt=dt, dx=dx, save_interval=save_interval, 
-                                                   animate=True)
+    U4, V4 = gray_scott_simulation(size=size, Du=0.16, Dv=0.08, f=0.018, k=0.051, 
+                                                   steps=steps, dt=dt, dx=dx, save_interval=save_interval)
     
     # Create comparison plot
     results = [(U1 - V1), (U2 - V2), (U3 - V3), (U4 - V4)]
@@ -120,7 +117,7 @@ if __name__ == "__main__":
     plot_comparison(results, title="Gray-Scott Model Simulation",
                    sub_titles=["Mixed dots and waves", "Sparse spots", 
                               "Dense labyrinth-like waves", "Very fine, complex structures"],
-                   savefig=False, filename="images/gs/gs_comparison.pdf", 
+                   savefig=True, filename="images/gs/gs_comparison.pdf", 
                    cmap='magma', colorbar=True)
     
     plt.show()
